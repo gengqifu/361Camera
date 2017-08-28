@@ -27,10 +27,6 @@ dependencies {
     })
     compile 'com.android.support:appcompat-v7:25.0.1'
     testCompile 'junit:junit:4.12'
-    compile 'javax.inject:javax.inject:1'
-    compile 'javax.annotation:javax.annotation-api:1.2'
-    compile 'com.google.dagger:dagger:2.0'
-    apt 'com.google.dagger:dagger-compiler:2.0'
     provided 'org.glassfish:javax.annotation:10.0-b28'
     compile 'com.google.guava:guava:19.0'
 }

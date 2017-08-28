@@ -4,14 +4,9 @@ import android.os.Bundle;
 import android.support.v7.app.AppCompatActivity;
 
 import org.hunter.a361camera.R;
-import org.hunter.a361camera.base.CameraApplication;
 import org.hunter.a361camera.util.ActivityUtils;
 
-import javax.inject.Inject;
-
 public class CameraActivity extends AppCompatActivity {
-    @Inject
-    CameraPresenter mCameraPresenter;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -25,11 +20,5 @@ public class CameraActivity extends AppCompatActivity {
             ActivityUtils.addFragmentToActivity(getSupportFragmentManager(),
                     statisticsFragment, R.id.contentFrame);
         }
-
-        DaggerCameraComponent.builder()
-                .cameraPresenterModule(new CameraPresenterModule(statisticsFragment))
-                .cameraRepositoryComponent(((CameraApplication) getApplication())
-                        .getTasksRepositoryComponent())
-                .build().inject(this);
     }
 }
