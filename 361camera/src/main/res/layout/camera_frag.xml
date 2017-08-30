@@ -4,8 +4,8 @@
                 android:layout_width="match_parent"
                 android:layout_height="match_parent">
 
-    <SurfaceView
-        android:id="@+id/surface_view_camera2"
+    <TextureView
+        android:id="@+id/texture_view_camera2"
         android:layout_width="match_parent"
         android:layout_height="match_parent"/>
 
@@ -16,6 +16,7 @@
         android:layout_alignParentBottom="true"
         android:layout_centerHorizontal="true"
         android:layout_marginBottom="20dp"
+        android:scaleType="centerCrop"
         android:src="@mipmap/capture"/>
 
     <org.hunter.a361camera.widget.PorterDuffViewImageView
