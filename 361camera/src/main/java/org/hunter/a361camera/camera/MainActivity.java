@@ -5,8 +5,9 @@ import android.support.v7.app.AppCompatActivity;
 
 import org.hunter.a361camera.R;
 import org.hunter.a361camera.util.ActivityUtils;
+import org.hunter.a361camera.view.CameraFragment;
 
-public class CameraActivity extends AppCompatActivity {
+public class MainActivity extends AppCompatActivity {
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
