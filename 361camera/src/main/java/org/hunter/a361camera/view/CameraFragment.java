@@ -38,6 +38,7 @@ import android.widget.ImageView;
 import android.widget.Toast;
 
 import org.hunter.a361camera.R;
+import org.hunter.a361camera.util.LogUtil;
 
 import java.io.File;
 import java.io.FileOutputStream;
@@ -139,11 +140,7 @@ public class CameraFragment extends Fragment {
         super.onResume();
         verifyStoragePermissions();
         startCameraThread();
-        if (!mTextureView.isAvailable()) {
-            mTextureView.setSurfaceTextureListener(mTextureListener);
-        } else {
-            startPreview();
-        }
+        mTextureView.setSurfaceTextureListener(mTextureListener);
     }
 
     private void startCameraThread() {
@@ -271,6 +268,7 @@ public class CameraFragment extends Fragment {
     };
 
     private void startPreview() {
+        LogUtil.e("aaaaaa", new Exception());
         SurfaceTexture mSurfaceTexture = mTextureView.getSurfaceTexture();
         mSurfaceTexture.setDefaultBufferSize(mPreviewSize.getWidth(), mPreviewSize.getHeight());
         Surface previewSurface = new Surface(mSurfaceTexture);
@@ -408,12 +406,13 @@ public class CameraFragment extends Fragment {
         public void run() {
             ByteBuffer buffer = mImage.getPlanes()[0].getBuffer();
             byte[] data = new byte[buffer.capacity()];
+            LogUtil.e("buffer " + buffer.capacity() + ", " + buffer.limit());
+            LogUtil.e("data " + data.length);
             buffer.get(data);
             String path = Environment.getExternalStorageDirectory() + "/DCIM/361camera/";
             File mImageFile = new File(path);
             if (!mImageFile.exists()) {
                 boolean ret = mImageFile.mkdirs();
-                assert (ret);
             }
             String timeStamp = new SimpleDateFormat("yyyyMMdd_HHmmss").format(new Date());
             String fileName = path + "IMG_" + timeStamp + ".jpg";
