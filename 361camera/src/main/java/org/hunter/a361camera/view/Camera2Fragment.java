@@ -35,6 +35,7 @@ import android.media.MediaScannerConnection;
 import android.net.Uri;
 import android.os.AsyncTask;
 import android.os.Bundle;
+import android.os.CountDownTimer;
 import android.os.Environment;
 import android.os.Handler;
 import android.os.HandlerThread;
@@ -53,6 +54,7 @@ import android.view.TextureView;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.ImageView;
+import android.widget.TextView;
 import android.widget.Toast;
 
 import org.hunter.a361camera.R;
@@ -82,9 +84,8 @@ public class Camera2Fragment extends Fragment
         implements View.OnClickListener, FragmentCompat.OnRequestPermissionsResultCallback {
     public static final String CAMERA_FRONT = "1";
     public static final String CAMERA_BACK = "0";
-
+    public static final int TIME_INTERVAL = 1000;
     public static final int IMAGE_SHOW = 100;
-    public static final int DELAY_TIME = 101;
     /**
      * Conversion from screen rotation to JPEG orientation.
      */
@@ -210,6 +211,7 @@ public class Camera2Fragment extends Fragment
     private AutoFitTextureView mTextureView;
     private ImageView mImageShow;
     private ImageView mTimer;
+    private TextView mTimeText;
     /*
      * Delay state, 0 represents no delay, 1 represents 3s delay, while 2 represents 10s delay
      */
@@ -692,6 +694,7 @@ public class Camera2Fragment extends Fragment
         mTextureView = (AutoFitTextureView) view.findViewById(R.id.texture_view_camera2);
         mImageShow = (ImageView) view.findViewById(R.id.iv_show_camera2);
         mTimer = (ImageView) view.findViewById(R.id.timer);
+        mTimeText = (TextView) view.findViewById(R.id.timer_text);
         mTimer.setOnClickListener(this);
 
         // Setup a new OrientationEventListener.  This is used to handle rotation events like a
@@ -759,7 +762,19 @@ public class Camera2Fragment extends Fragment
                 if (mDelayState == 0) {
                     takePicture();
                 } else {
-                    mHandler.sendEmptyMessageDelayed(DELAY_TIME, mDelayTime);
+                    new CountDownTimer(mDelayTime, TIME_INTERVAL) {
+                        @Override
+                        public void onTick(long millisUntilFinished) {
+                            mTimeText.setVisibility(View.VISIBLE);
+                            mTimeText.setText("" + millisUntilFinished / TIME_INTERVAL);
+                        }
+
+                        @Override
+                        public void onFinish() {
+                            mTimeText.setVisibility(View.GONE);
+                            takePicture();
+                        }
+                    }.start();
                 }
                 break;
             }
@@ -1865,9 +1880,6 @@ public class Camera2Fragment extends Fragment
             switch (msg.what) {
                 case IMAGE_SHOW:
                     fragment.get().showIamge((Bitmap) msg.obj);
-                    break;
-                case DELAY_TIME:
-                    fragment.get().takePicture();
                     break;
                 default:
                     break;
