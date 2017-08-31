@@ -81,6 +81,8 @@ import java.util.concurrent.atomic.AtomicInteger;
 
 public class Camera2Fragment extends Fragment
         implements View.OnClickListener, FragmentCompat.OnRequestPermissionsResultCallback {
+    public static final String CAMERA_FRONT = "1";
+    public static final String CAMERA_BACK = "0";
 
     public static final int IMAGE_SHOW = 100;
     /**
@@ -215,7 +217,7 @@ public class Camera2Fragment extends Fragment
     /**
      * ID of the current {@link CameraDevice}.
      */
-    private String mCameraId;
+    private String mCameraId = CAMERA_BACK; // Default back camera
     /**
      * A {@link CameraCaptureSession } for camera preview.
      */
@@ -750,9 +752,30 @@ public class Camera2Fragment extends Fragment
                 break;
             }
             case R.id.switch_camera: {
-                //switchCamera();
+                switchCamera();
                 break;
             }
+        }
+    }
+
+    public void switchCamera() {
+        if (mCameraId.equals(CAMERA_FRONT)) {
+            mCameraId = CAMERA_BACK;
+            closeCamera();
+            reopenCamera();
+
+        } else if (mCameraId.equals(CAMERA_BACK)) {
+            mCameraId = CAMERA_FRONT;
+            closeCamera();
+            reopenCamera();
+        }
+    }
+
+    public void reopenCamera() {
+        if (mTextureView.isAvailable()) {
+            openCamera();
+        } else {
+            mTextureView.setSurfaceTextureListener(mSurfaceTextureListener);
         }
     }
 
@@ -773,6 +796,10 @@ public class Camera2Fragment extends Fragment
                 CameraCharacteristics characteristics
                         = manager.getCameraCharacteristics(cameraId);
 
+                if ((!cameraId.equals(CAMERA_FRONT) && (!cameraId.equals(CAMERA_BACK))
+                        || (!cameraId.equals(mCameraId)))) {
+                    continue;
+                }
                 // We only use a camera that supports RAW in this sample.
                 if (!contains(characteristics.get(
                         CameraCharacteristics.REQUEST_AVAILABLE_CAPABILITIES),
@@ -813,7 +840,6 @@ public class Camera2Fragment extends Fragment
                             mOnRawImageAvailableListener, mBackgroundHandler);
 
                     mCharacteristics = characteristics;
-                    mCameraId = cameraId;
                 }
                 return true;
             }
