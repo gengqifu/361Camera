@@ -1413,19 +1413,6 @@ public class Camera2Fragment extends Fragment
         if (builder == null) return;
         ImageSaver saver = builder.buildIfComplete();
         if (saver != null) {
-            /*final ByteBuffer buffer = saver.mImage.getPlanes()[0].getBuffer();
-            getActivity().runOnUiThread(new Runnable() {
-                @Override
-                public void run() {
-                    // Show captured image
-                    byte[] bytes = new byte[buffer.remaining()];
-                    buffer.get(bytes);//由缓冲区存入字节数组
-                    final Bitmap bitmap = BitmapFactory.decodeByteArray(bytes, 0, bytes.length);
-                    if (bitmap != null) {
-                        mImageShow.setImageBitmap(bitmap);
-                    }
-                }
-            });*/
             queue.remove(requestId);
             AsyncTask.THREAD_POOL_EXECUTOR.execute(saver);
         }

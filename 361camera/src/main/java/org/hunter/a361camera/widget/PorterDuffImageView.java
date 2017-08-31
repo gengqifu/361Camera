@@ -13,23 +13,23 @@ import android.util.AttributeSet;
 import android.util.Log;
 import android.widget.ImageView;
 
-public class PorterDuffViewImageView extends ImageView {
+public class PorterDuffImageView extends ImageView {
     private static Xfermode xfermode;
     private Paint mpaint;
     private Bitmap bitmap;
     private RectF rect;
 
-    public PorterDuffViewImageView(Context context) {
+    public PorterDuffImageView(Context context) {
         super(context);
         init();
     }
 
-    public PorterDuffViewImageView(Context context, AttributeSet attrs) {
+    public PorterDuffImageView(Context context, AttributeSet attrs) {
         super(context, attrs);
         init();
     }
 
-    public PorterDuffViewImageView(Context context, AttributeSet attrs, int defStyleAttr) {
+    public PorterDuffImageView(Context context, AttributeSet attrs, int defStyleAttr) {
         super(context, attrs, defStyleAttr);
         init();
     }
