@@ -56,7 +56,6 @@ import android.widget.ImageView;
 import android.widget.Toast;
 
 import org.hunter.a361camera.R;
-import org.hunter.a361camera.util.LogUtil;
 import org.hunter.a361camera.widget.AutoFitTextureView;
 
 import java.io.File;
@@ -85,6 +84,7 @@ public class Camera2Fragment extends Fragment
     public static final String CAMERA_BACK = "0";
 
     public static final int IMAGE_SHOW = 100;
+    public static final int DELAY_TIME = 101;
     /**
      * Conversion from screen rotation to JPEG orientation.
      */
@@ -209,6 +209,12 @@ public class Camera2Fragment extends Fragment
      */
     private AutoFitTextureView mTextureView;
     private ImageView mImageShow;
+    private ImageView mTimer;
+    /*
+     * Delay state, 0 represents no delay, 1 represents 3s delay, while 2 represents 10s delay
+     */
+    private short mDelayState = 0; // Timer
+    private short mDelayTime;
     /**
      * An additional thread for running tasks that shouldn't block the UI.  This is used for all
      * callbacks from the {@link CameraDevice} and {@link CameraCaptureSession}s.
@@ -685,6 +691,8 @@ public class Camera2Fragment extends Fragment
         view.findViewById(R.id.switch_camera).setOnClickListener(this);
         mTextureView = (AutoFitTextureView) view.findViewById(R.id.texture_view_camera2);
         mImageShow = (ImageView) view.findViewById(R.id.iv_show_camera2);
+        mTimer = (ImageView) view.findViewById(R.id.timer);
+        mTimer.setOnClickListener(this);
 
         // Setup a new OrientationEventListener.  This is used to handle rotation events like a
         // 180 degree rotation that do not normally trigger a call to onCreate to do view re-layout
@@ -748,13 +756,43 @@ public class Camera2Fragment extends Fragment
     public void onClick(View view) {
         switch (view.getId()) {
             case R.id.capture: {
-                takePicture();
+                if (mDelayState == 0) {
+                    takePicture();
+                } else {
+                    mHandler.sendEmptyMessageDelayed(DELAY_TIME, mDelayTime);
+                }
                 break;
             }
             case R.id.switch_camera: {
                 switchCamera();
                 break;
             }
+            case R.id.timer:
+                switchDelayState();
+                break;
+
+        }
+    }
+
+    private void switchDelayState() {
+        switch (mDelayState) {
+            case 0:
+                mTimer.setImageResource(R.mipmap.ic_3s);
+                mDelayTime = 3 * 1000;
+                mDelayState = 1;
+                break;
+            case 1:
+                mTimer.setImageResource(R.mipmap.ic_10s);
+                mDelayTime = 10 * 1000;
+                mDelayState = 2;
+                break;
+            case 2:
+                mTimer.setImageResource(R.mipmap.timer);
+                mDelayTime = 0;
+                mDelayState = 0;
+                break;
+            default:
+                break;
         }
     }
 
@@ -1827,7 +1865,9 @@ public class Camera2Fragment extends Fragment
             switch (msg.what) {
                 case IMAGE_SHOW:
                     fragment.get().showIamge((Bitmap) msg.obj);
-                    LogUtil.e("size " + ((Bitmap) msg.obj).getRowBytes());
+                    break;
+                case DELAY_TIME:
+                    fragment.get().takePicture();
                     break;
                 default:
                     break;

@@ -10,6 +10,7 @@
         android:layout_height="match_parent"/>
 
     <FrameLayout
+        android:id="@+id/button_group_1"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:layout_alignParentBottom="true"
@@ -46,5 +47,27 @@
             android:scaleType="centerCrop"/>
 
     </FrameLayout>
+
+    <RelativeLayout
+        android:id="@+id/button_group_2"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_alignParentTop="true"
+        android:layout_marginTop="10dp"
+        android:layout_toStartOf="@id/button_group_1"
+        android:layout_marginEnd="10dp">
+
+        <RelativeLayout
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content">
+
+            <ImageView
+                android:id="@+id/timer"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:padding="10dp"
+                android:src="@mipmap/timer"/>
+        </RelativeLayout>
+    </RelativeLayout>
 
 </RelativeLayout>
