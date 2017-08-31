@@ -29,4 +29,5 @@ dependencies {
     testCompile 'junit:junit:4.12'
     provided 'org.glassfish:javax.annotation:10.0-b28'
     compile 'com.google.guava:guava:19.0'
+    compile "com.android.support:support-v13:25.0.1"
 }

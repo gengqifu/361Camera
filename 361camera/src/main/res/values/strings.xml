@@ -1,3 +1,4 @@
 <resources>
     <string name="app_name">361Camera</string>
+    <string name="request_permission">需要访问相机的权限</string>
 </resources>
