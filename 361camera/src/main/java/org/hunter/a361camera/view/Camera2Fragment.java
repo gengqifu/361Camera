@@ -212,11 +212,16 @@ public class Camera2Fragment extends Fragment
     private ImageView mImageShow;
     private ImageView mTimer;
     private TextView mTimeText;
+    private ImageView mFlashBtn;
     /*
      * Delay state, 0 represents no delay, 1 represents 3s delay, while 2 represents 10s delay
      */
     private short mDelayState = 0; // Timer
     private short mDelayTime;
+    /*
+     * Flash mode, 0 represents off, 1 represents auto, while 2 represents on
+     */
+    private short mFlashMode = 1;
     /**
      * An additional thread for running tasks that shouldn't block the UI.  This is used for all
      * callbacks from the {@link CameraDevice} and {@link CameraCaptureSession}s.
@@ -695,7 +700,9 @@ public class Camera2Fragment extends Fragment
         mImageShow = (ImageView) view.findViewById(R.id.iv_show_camera2);
         mTimer = (ImageView) view.findViewById(R.id.timer);
         mTimeText = (TextView) view.findViewById(R.id.timer_text);
+        mFlashBtn = (ImageView) view.findViewById(R.id.flash);
         mTimer.setOnClickListener(this);
+        mFlashBtn.setOnClickListener(this);
 
         // Setup a new OrientationEventListener.  This is used to handle rotation events like a
         // 180 degree rotation that do not normally trigger a call to onCreate to do view re-layout
@@ -785,7 +792,70 @@ public class Camera2Fragment extends Fragment
             case R.id.timer:
                 switchDelayState();
                 break;
+            case R.id.flash:
+                switchFlashMode();
+                break;
+        }
+    }
 
+    private void setFlashMode() {
+        switch (mFlashMode) {
+            case 0:
+                mPreviewRequestBuilder.set(CaptureRequest.CONTROL_AE_MODE, CaptureRequest.CONTROL_AE_MODE_ON);
+                mPreviewRequestBuilder.set(CaptureRequest.FLASH_MODE, CaptureRequest.FLASH_MODE_OFF);
+                break;
+            case 1:
+                mPreviewRequestBuilder.set(CaptureRequest.CONTROL_AE_MODE, CaptureRequest.CONTROL_AE_MODE_ON_AUTO_FLASH);
+                break;
+            case 2:
+                mPreviewRequestBuilder.set(CaptureRequest.CONTROL_AE_MODE, CaptureRequest.CONTROL_AE_MODE_ON_ALWAYS_FLASH);
+                break;
+        }
+    }
+
+    private void switchFlashMode() {
+        switch (mFlashMode) {
+            case 0:
+                mFlashMode = 1;
+                mFlashBtn.setImageResource(R.mipmap.flash_auto);
+                mPreviewRequestBuilder.set(CaptureRequest.CONTROL_AE_MODE, CaptureRequest.CONTROL_AE_MODE_ON_AUTO_FLASH);
+                try {
+                    mCaptureSession.setRepeatingRequest(
+                            mPreviewRequestBuilder.build(),
+                            mPreCaptureCallback, mBackgroundHandler);
+                } catch (CameraAccessException e) {
+                    e.printStackTrace();
+                    return;
+                }
+
+                break;
+            case 1:
+                mFlashMode = 2;
+                mFlashBtn.setImageResource(R.mipmap.flash_on);
+                mPreviewRequestBuilder.set(CaptureRequest.CONTROL_AE_MODE, CaptureRequest.CONTROL_AE_MODE_ON_ALWAYS_FLASH);
+                try {
+                    mCaptureSession.setRepeatingRequest(
+                            mPreviewRequestBuilder.build(),
+                            mPreCaptureCallback, mBackgroundHandler);
+                } catch (CameraAccessException e) {
+                    e.printStackTrace();
+                    return;
+                }
+                break;
+            case 2:
+                mFlashMode = 0;
+                mFlashBtn.setImageResource(R.mipmap.flash_off);
+                mPreviewRequestBuilder.set(CaptureRequest.CONTROL_AE_MODE, CaptureRequest.CONTROL_AE_MODE_ON);
+                mPreviewRequestBuilder.set(CaptureRequest.FLASH_MODE, CaptureRequest.FLASH_MODE_OFF);
+                try {
+                    mCaptureSession.setRepeatingRequest(
+                            mPreviewRequestBuilder.build(),
+                            mPreCaptureCallback, mBackgroundHandler);
+                } catch (CameraAccessException e) {
+                    e.printStackTrace();
+                    return;
+                }
+                break;
         }
     }
 
@@ -1337,6 +1407,8 @@ public class Camera2Fragment extends Fragment
                 // Start a timer for the pre-capture sequence.
                 startTimerLocked();
 
+                // Set flash mode
+                setFlashMode();
                 // Replace the existing repeating request with one with updated 3A triggers.
                 mCaptureSession.capture(mPreviewRequestBuilder.build(), mPreCaptureCallback,
                         mBackgroundHandler);
