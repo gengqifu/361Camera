@@ -22,6 +22,13 @@
             android:textSize="160sp"
             android:visibility="gone"
             android:textColor="@android:color/holo_orange_light"/>
+
+        <ImageView
+            android:id="@+id/iv_focus"
+            android:layout_width="80dp"
+            android:layout_height="80dp"
+            android:src="@drawable/focus_area"
+            android:visibility="invisible"/>
     </RelativeLayout>
 
 
@@ -76,6 +83,7 @@
         <RelativeLayout
             android:layout_width="wrap_content"
             android:layout_height="wrap_content">
+
             <ImageView
                 android:id="@+id/timer"
                 android:layout_width="wrap_content"
@@ -83,6 +91,7 @@
                 android:layout_alignParentEnd="true"
                 android:padding="10dp"
                 android:src="@mipmap/timer"/>
+
             <ImageView
                 android:id="@+id/flash"
                 android:layout_toStartOf="@id/timer"

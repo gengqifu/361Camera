@@ -14,6 +14,7 @@ import android.graphics.BitmapFactory;
 import android.graphics.ImageFormat;
 import android.graphics.Matrix;
 import android.graphics.Point;
+import android.graphics.Rect;
 import android.graphics.RectF;
 import android.graphics.SurfaceTexture;
 import android.hardware.SensorManager;
@@ -28,6 +29,7 @@ import android.hardware.camera2.CaptureRequest;
 import android.hardware.camera2.CaptureResult;
 import android.hardware.camera2.DngCreator;
 import android.hardware.camera2.TotalCaptureResult;
+import android.hardware.camera2.params.MeteringRectangle;
 import android.hardware.camera2.params.StreamConfigurationMap;
 import android.media.Image;
 import android.media.ImageReader;
@@ -44,20 +46,26 @@ import android.os.Message;
 import android.os.SystemClock;
 import android.support.v13.app.FragmentCompat;
 import android.support.v4.app.ActivityCompat;
+import android.support.v4.view.MotionEventCompat;
 import android.util.Log;
 import android.util.Size;
 import android.util.SparseIntArray;
 import android.view.LayoutInflater;
+import android.view.MotionEvent;
 import android.view.OrientationEventListener;
 import android.view.Surface;
 import android.view.TextureView;
 import android.view.View;
 import android.view.ViewGroup;
+import android.view.animation.Animation;
+import android.view.animation.AnimationUtils;
 import android.widget.ImageView;
 import android.widget.TextView;
 import android.widget.Toast;
 
 import org.hunter.a361camera.R;
+import org.hunter.a361camera.util.AutoFocusHelper;
+import org.hunter.a361camera.util.LogUtil;
 import org.hunter.a361camera.widget.AutoFitTextureView;
 
 import java.io.File;
@@ -86,6 +94,7 @@ public class Camera2Fragment extends Fragment
     public static final String CAMERA_BACK = "0";
     public static final int TIME_INTERVAL = 1000;
     public static final int IMAGE_SHOW = 100;
+    public static final int FOCUS_HIDE = 101;
     /**
      * Conversion from screen rotation to JPEG orientation.
      */
@@ -148,6 +157,9 @@ public class Camera2Fragment extends Fragment
      * Camera state: Waiting for 3A convergence before capturing a photo.
      */
     private static final int STATE_WAITING_FOR_3A_CONVERGENCE = 3;
+
+    //the time needed to resume continuous focus mode after we tab to focus
+    private static final int DELAY_TIME_RESUME_CONTINUOUS_AF = 1000;
 
     private static Camera2Fragment INSTANCE;
     private static Camera2Handler mHandler;
@@ -213,6 +225,37 @@ public class Camera2Fragment extends Fragment
     private ImageView mTimer;
     private TextView mTimeText;
     private ImageView mFlashBtn;
+    private ImageView mIvFocus;
+    //the current surface to preview
+    private Surface mPreviewSurface;
+    //current auto focus mode,when we tap to focus, the mode will switch to auto
+    private AutoFocusMode mControlAFMode = AutoFocusMode.CONTINUOUS_PICTURE;
+    //focus zero region
+    private static final MeteringRectangle[] ZERO_WEIGHT_3A_REGION = AutoFocusHelper.getZeroWeightRegion();
+    private MeteringRectangle[] mAFRegions = ZERO_WEIGHT_3A_REGION;
+    private MeteringRectangle[] mAERegions = ZERO_WEIGHT_3A_REGION;
+
+    enum AutoFocusMode {
+        /**
+         * System is continuously focusing.
+         */
+        CONTINUOUS_PICTURE,
+        /**
+         * System is running a triggered scan.
+         */
+        AUTO;
+
+        int switchToCamera2FocusMode() {
+            switch (this) {
+                case CONTINUOUS_PICTURE:
+                    return CameraMetadata.CONTROL_AF_MODE_CONTINUOUS_PICTURE;
+                case AUTO:
+                    return CameraMetadata.CONTROL_AF_MODE_AUTO;
+                default:
+                    return CameraMetadata.CONTROL_AF_MODE_CONTINUOUS_PICTURE;
+            }
+        }
+    }
     /*
      * Delay state, 0 represents no delay, 1 represents 3s delay, while 2 represents 10s delay
      */
@@ -701,8 +744,34 @@ public class Camera2Fragment extends Fragment
         mTimer = (ImageView) view.findViewById(R.id.timer);
         mTimeText = (TextView) view.findViewById(R.id.timer_text);
         mFlashBtn = (ImageView) view.findViewById(R.id.flash);
+        mIvFocus = (ImageView) view.findViewById(R.id.iv_focus);
         mTimer.setOnClickListener(this);
         mFlashBtn.setOnClickListener(this);
+
+        mTextureView.setOnTouchListener(new View.OnTouchListener() {
+            @Override
+            public boolean onTouch(View v, MotionEvent event) {
+                int actionMasked = MotionEventCompat.getActionMasked(event);
+                int fingerX, fingerY;
+                int length = (int) (getResources().getDisplayMetrics().density * 80);
+                switch (actionMasked) {
+                    case MotionEvent.ACTION_DOWN:
+                        fingerX = (int) event.getX();
+                        fingerY = (int) event.getY();
+                        LogUtil.d("onTouch: x->" + fingerX + ",y->" + fingerY);
+
+                        mIvFocus.setX(fingerX - length / 2);
+                        mIvFocus.setY(fingerY - length / 2);
+
+                        mIvFocus.setVisibility(View.VISIBLE);
+                        triggerFocusArea(fingerX, fingerY);
+
+                        break;
+                }
+
+                return false;
+            }
+        });
 
         // Setup a new OrientationEventListener.  This is used to handle rotation events like a
         // 180 degree rotation that do not normally trigger a call to onCreate to do view re-layout
@@ -759,6 +828,74 @@ public class Camera2Fragment extends Fragment
             }
         } else {
             super.onRequestPermissionsResult(requestCode, permissions, grantResults);
+        }
+    }
+
+    private void triggerFocusArea(float x, float y) {
+        CameraManager manager = (CameraManager) getActivity().getSystemService(Context.CAMERA_SERVICE);
+        try {
+            CameraCharacteristics characteristics
+                    = manager.getCameraCharacteristics(mCameraId);
+            Integer sensorOrientation = characteristics.get(
+                    CameraCharacteristics.SENSOR_ORIENTATION);
+
+            sensorOrientation = sensorOrientation == null ? 0 : sensorOrientation;
+
+            Rect cropRegion = AutoFocusHelper.cropRegionForZoom(characteristics, 1f);
+            mAERegions = AutoFocusHelper.aeRegionsForNormalizedCoord(x, y, cropRegion, sensorOrientation);
+            mAFRegions = AutoFocusHelper.afRegionsForNormalizedCoord(x, y, cropRegion, sensorOrientation);
+
+            // Step 1: Request single frame CONTROL_AF_TRIGGER_START.
+            CaptureRequest.Builder builder;
+            builder = mCameraDevice.createCaptureRequest(CameraDevice.TEMPLATE_PREVIEW);
+            builder.addTarget(mPreviewSurface);
+            builder.set(CaptureRequest.CONTROL_MODE, CameraMetadata.CONTROL_MODE_AUTO);
+
+            mControlAFMode = AutoFocusMode.AUTO;
+
+            builder.set(CaptureRequest.CONTROL_AF_MODE, mControlAFMode.switchToCamera2FocusMode());
+            builder.set(CaptureRequest.CONTROL_AF_TRIGGER, CaptureRequest.CONTROL_AF_TRIGGER_START);
+            mCaptureSession.capture(builder.build(), mPreCaptureCallback, mBackgroundHandler);
+
+            // Step 2: Call repeatingPreview to update mControlAFMode.
+            sendRepeatPreviewRequest();
+            resumeContinuousAFAfterDelay(DELAY_TIME_RESUME_CONTINUOUS_AF);
+        } catch (CameraAccessException ex) {
+            Log.e(TAG, "Could not execute preview request.", ex);
+        }
+    }
+
+    private void resumeContinuousAFAfterDelay(int timeMillions) {
+        mBackgroundHandler.removeCallbacks(mResumePreviewRunnable);
+        mBackgroundHandler.postDelayed(mResumePreviewRunnable, timeMillions);
+    }
+
+    //the runnable to resume continuous focus mode after tab to focus
+    private Runnable mResumePreviewRunnable = new Runnable() {
+        @Override
+        public void run() {
+            mAERegions = ZERO_WEIGHT_3A_REGION;
+            mAFRegions = ZERO_WEIGHT_3A_REGION;
+            mControlAFMode = AutoFocusMode.CONTINUOUS_PICTURE;
+            if (mCameraDevice != null)
+                sendRepeatPreviewRequest();
+            Message msg = Message.obtain();
+            mHandler.sendEmptyMessage(FOCUS_HIDE);
+        }
+    };
+
+    private boolean sendRepeatPreviewRequest() {
+        try {
+            CaptureRequest.Builder builder = mCameraDevice.createCaptureRequest(CameraDevice.TEMPLATE_PREVIEW);
+            builder.addTarget(mPreviewSurface);
+            builder.set(CaptureRequest.CONTROL_MODE, CameraMetadata.CONTROL_MODE_AUTO);
+            builder.set(CaptureRequest.CONTROL_AF_MODE, mControlAFMode.switchToCamera2FocusMode());
+
+            mCaptureSession.setRepeatingRequest(builder.build(), mPreCaptureCallback, mBackgroundHandler);
+            return true;
+        } catch (CameraAccessException e) {
+            e.printStackTrace();
+            return false;
         }
     }
 
@@ -1144,15 +1281,15 @@ public class Camera2Fragment extends Fragment
             texture.setDefaultBufferSize(mPreviewSize.getWidth(), mPreviewSize.getHeight());
 
             // This is the output Surface we need to start preview.
-            Surface surface = new Surface(texture);
+            mPreviewSurface = new Surface(texture);
 
             // We set up a CaptureRequest.Builder with the output Surface.
             mPreviewRequestBuilder
                     = mCameraDevice.createCaptureRequest(CameraDevice.TEMPLATE_PREVIEW);
-            mPreviewRequestBuilder.addTarget(surface);
+            mPreviewRequestBuilder.addTarget(mPreviewSurface);
 
             // Here, we create a CameraCaptureSession for camera preview.
-            mCameraDevice.createCaptureSession(Arrays.asList(surface,
+            mCameraDevice.createCaptureSession(Arrays.asList(mPreviewSurface,
                     mJpegImageReader.get().getSurface(),
                     mRawImageReader.get().getSurface()), new CameraCaptureSession.StateCallback() {
                         @Override
@@ -1952,6 +2089,9 @@ public class Camera2Fragment extends Fragment
             switch (msg.what) {
                 case IMAGE_SHOW:
                     fragment.get().showIamge((Bitmap) msg.obj);
+                    break;
+                case FOCUS_HIDE:
+                    fragment.get().mIvFocus.setVisibility(View.INVISIBLE);
                     break;
                 default:
                     break;
