@@ -57,8 +57,6 @@ import android.view.Surface;
 import android.view.TextureView;
 import android.view.View;
 import android.view.ViewGroup;
-import android.view.animation.Animation;
-import android.view.animation.AnimationUtils;
 import android.widget.ImageView;
 import android.widget.TextView;
 import android.widget.Toast;
@@ -226,6 +224,7 @@ public class Camera2Fragment extends Fragment
     private TextView mTimeText;
     private ImageView mFlashBtn;
     private ImageView mIvFocus;
+    private ImageView mIvHdr;
     //the current surface to preview
     private Surface mPreviewSurface;
     //current auto focus mode,when we tap to focus, the mode will switch to auto
@@ -234,6 +233,10 @@ public class Camera2Fragment extends Fragment
     private static final MeteringRectangle[] ZERO_WEIGHT_3A_REGION = AutoFocusHelper.getZeroWeightRegion();
     private MeteringRectangle[] mAFRegions = ZERO_WEIGHT_3A_REGION;
     private MeteringRectangle[] mAERegions = ZERO_WEIGHT_3A_REGION;
+    /*
+     * HDR modre, 0 represents hdr off, while to represent hdr on.
+     */
+    private int mHdrMode;
 
     enum AutoFocusMode {
         /**
@@ -256,6 +259,7 @@ public class Camera2Fragment extends Fragment
             }
         }
     }
+
     /*
      * Delay state, 0 represents no delay, 1 represents 3s delay, while 2 represents 10s delay
      */
@@ -745,8 +749,10 @@ public class Camera2Fragment extends Fragment
         mTimeText = (TextView) view.findViewById(R.id.timer_text);
         mFlashBtn = (ImageView) view.findViewById(R.id.flash);
         mIvFocus = (ImageView) view.findViewById(R.id.iv_focus);
+        mIvHdr = (ImageView) view.findViewById(R.id.hdr);
         mTimer.setOnClickListener(this);
         mFlashBtn.setOnClickListener(this);
+        mIvHdr.setOnClickListener(this);
 
         mTextureView.setOnTouchListener(new View.OnTouchListener() {
             @Override
@@ -932,6 +938,32 @@ public class Camera2Fragment extends Fragment
             case R.id.flash:
                 switchFlashMode();
                 break;
+            case R.id.hdr:
+                switchHdrMode();
+                break;
+        }
+    }
+
+    private void switchHdrMode() {
+        switch (mHdrMode) {
+            case 0:
+                mHdrMode = 1;
+                mIvHdr.setImageResource(R.mipmap.hdr_on);
+                mPreviewRequestBuilder.set(CaptureRequest.CONTROL_SCENE_MODE, CameraMetadata.CONTROL_SCENE_MODE_HDR);
+                break;
+            case 1:
+                mHdrMode = 0;
+                mIvHdr.setImageResource(R.mipmap.hdr_off);
+                mPreviewRequestBuilder.set(CaptureRequest.CONTROL_SCENE_MODE, CameraMetadata.CONTROL_SCENE_MODE_DISABLED);
+                break;
+        }
+        try {
+            mCaptureSession.setRepeatingRequest(
+                    mPreviewRequestBuilder.build(),
+                    mPreCaptureCallback, mBackgroundHandler);
+        } catch (CameraAccessException e) {
+            e.printStackTrace();
+            return;
         }
     }
 
@@ -1302,6 +1334,8 @@ public class Camera2Fragment extends Fragment
 
                                 try {
                                     setup3AControlsLocked(mPreviewRequestBuilder);
+                                    // Default hdr off
+                                    mPreviewRequestBuilder.set(CaptureRequest.CONTROL_SCENE_MODE, CameraMetadata.CONTROL_SCENE_MODE_DISABLED);
                                     // Finally, we start displaying the camera preview.
                                     cameraCaptureSession.setRepeatingRequest(
                                             mPreviewRequestBuilder.build(),
